@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Env files — never commit real secrets, only the .example templates
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Build output
+backend/dist/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

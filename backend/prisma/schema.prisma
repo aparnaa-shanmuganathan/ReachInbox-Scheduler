@@ -1,0 +1,122 @@
+// ReachInbox Email Scheduler — data model
+// Source of truth for every email: the BullMQ job in Redis is a *dispatch mechanism*,
+// this table is the durable record used for idempotency, the dashboard, and restart recovery.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EmailStatus {
+  PENDING      // created, not yet enqueued in BullMQ
+  QUEUED       // enqueued as a BullMQ delayed job, waiting for its time
+  PROCESSING   // worker has picked it up and is sending it right now
+  SENT         // delivered successfully via SMTP
+  FAILED       // permanently failed after retries
+  RATE_LIMITED // deferred because the sender's hourly quota was hit; will be re-queued
+}
+
+model User {
+  id        String   @id @default(uuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  campaigns Campaign[]
+
+  @@map("users")
+}
+
+model Sender {
+  id           String   @id @default(uuid())
+  label        String
+  fromEmail    String   @unique
+  smtpHost     String
+  smtpPort     Int
+  smtpUser     String
+  smtpPass     String
+  smtpSecure   Boolean  @default(false)
+  // Retired senders (e.g. old Ethereal test accounts once real SMTP is configured) are
+  // deactivated rather than deleted, so past Email rows still resolve their `sender`
+  // relation. The scheduler only round-robins across active senders.
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  emails Email[]
+
+  @@map("senders")
+}
+
+model Campaign {
+  id                       String   @id @default(uuid())
+  subject                  String
+  body                     String   @db.Text
+  delayBetweenEmailsMs     Int
+  hourlyLimitPerSender     Int
+  startTime                DateTime
+  totalRecipients          Int      @default(0)
+  createdById              String
+  createdBy                User     @relation(fields: [createdById], references: [id])
+  createdAt                DateTime @default(now())
+
+  emails      Email[]
+  attachments Attachment[]
+
+  @@map("campaigns")
+}
+
+model Attachment {
+  id         String   @id @default(uuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  filename String
+  mimeType String
+  size     Int
+  // Stored in Postgres rather than a shared filesystem volume — the api and worker run
+  // as separate containers with no shared disk, and this table is already the durable
+  // source of truth the worker reads from at send time (possibly hours/days later).
+  data     Bytes
+
+  createdAt DateTime @default(now())
+
+  @@index([campaignId])
+  @@map("attachments")
+}
+
+model Email {
+  id           String      @id @default(uuid())
+  campaignId   String
+  campaign     Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  senderId     String
+  sender       Sender      @relation(fields: [senderId], references: [id])
+
+  recipient    String
+  subject      String
+  body         String      @db.Text
+
+  status       EmailStatus @default(PENDING)
+  scheduledFor DateTime
+  sentAt       DateTime?
+  lastError    String?
+  attempts     Int         @default(0)
+
+  // Deterministic BullMQ job id (== this row's id). BullMQ dedupes on job id, and the
+  // worker also does a conditional DB update (status = PENDING/QUEUED -> PROCESSING)
+  // before sending, so a job can never result in two sends even if re-enqueued.
+  jobId        String?     @unique
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([status])
+  @@index([scheduledFor])
+  @@index([campaignId])
+  @@map("emails")
+}
