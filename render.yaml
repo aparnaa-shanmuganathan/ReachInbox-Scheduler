@@ -25,12 +25,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Render assigns the public URL based on this service's name above. If Render had to
-      # rename it (e.g. the name was taken), update these two to match the real URL.
+      # Render appended a suffix to the service name above because the plain name was
+      # already taken — this is the actual assigned URL, confirmed live. If you fork this
+      # repo and re-apply the Blueprint under a different account, Render will likely
+      # assign yet another URL; update these two (and the Google Cloud Console redirect
+      # URI) to match whatever it actually assigns.
       - key: BACKEND_URL
-        value: https://reachinbox-scheduler-api.onrender.com
+        value: https://reachinbox-scheduler-api-r9pt.onrender.com
       - key: GOOGLE_CALLBACK_URL
-        value: https://reachinbox-scheduler-api.onrender.com/api/auth/google/callback
+        value: https://reachinbox-scheduler-api-r9pt.onrender.com/api/auth/google/callback
       # Set this to your real Vercel URL once known (Vercel dashboard -> Deployments).
       - key: FRONTEND_URL
         sync: false
