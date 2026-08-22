@@ -29,11 +29,17 @@ export class SenderHourlyRateLimiter {
 
   /**
    * Atomically reserve one send slot for this sender in the current hour window.
+   * `limitOverride` lets a caller apply a per-campaign `hourlyLimitPerSender` instead of
+   * the global `MAX_EMAILS_PER_HOUR_PER_SENDER` default.
    * Returns { allowed: true } if under the limit (and the slot is now consumed), or
    * { allowed: false } if the sender is at capacity for this hour — the caller must NOT
    * send, and should re-enqueue the job for the next window instead.
    */
-  async tryReserveSlot(senderId: string): Promise<{ allowed: boolean; count: number }> {
+  async tryReserveSlot(
+    senderId: string,
+    limitOverride?: number,
+  ): Promise<{ allowed: boolean; count: number }> {
+    const limit = limitOverride ?? this.limitPerSender;
     const key = this.windowKey(senderId);
 
     const count = await this.redis.incr(key);
@@ -42,7 +48,7 @@ export class SenderHourlyRateLimiter {
       await this.redis.expire(key, 70 * 60);
     }
 
-    if (count > this.limitPerSender) {
+    if (count > limit) {
       // We already incremented past the limit; release the over-count back so the number
       // stays meaningful for observability instead of climbing unbounded.
       await this.redis.decr(key);

@@ -40,7 +40,12 @@ async function processEmailJob(job: Job<EmailJobData>): Promise<void> {
   });
 
   // --- Hourly rate limit, enforced via Redis so it is correct across N worker processes ---
-  const { allowed, count } = await rateLimiter.tryReserveSlot(senderId);
+  // Each campaign can configure its own per-sender hourly cap; falls back to the global
+  // MAX_EMAILS_PER_HOUR_PER_SENDER default if the campaign didn't set one.
+  const { allowed, count } = await rateLimiter.tryReserveSlot(
+    senderId,
+    email.campaign.hourlyLimitPerSender,
+  );
   if (!allowed) {
     logger.warn(
       { emailId, senderId, count },
