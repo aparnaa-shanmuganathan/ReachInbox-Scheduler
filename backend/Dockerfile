@@ -26,6 +26,10 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/prisma ./prisma
+# Only used by the Render hosted deployment (render.yaml); irrelevant to local/Docker
+# Compose, which overrides CMD with its own command.
+COPY docker-entrypoint-hosted.sh ./
+RUN chmod +x ./docker-entrypoint-hosted.sh
 
 EXPOSE 4000
 CMD ["node", "dist/server.js"]

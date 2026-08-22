@@ -17,10 +17,10 @@ services:
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # Applies pending Prisma migrations before starting — the Dockerfile's own CMD
-    # (dist/server.js, no migration step) is only overridden by docker-compose.yml
-    # locally, so this override must replicate that "migrate deploy && start" step too.
-    dockerCommand: sh -c "npx prisma migrate deploy && node dist/hostedServer.js"
+    # A quoted `sh -c "..."` string isn't reliably shell-parsed by Render's dockerCommand
+    # (quoting gets mangled, causing "exit 127: command not found") — a real script file
+    # avoids that entirely. See backend/docker-entrypoint-hosted.sh.
+    dockerCommand: ./docker-entrypoint-hosted.sh
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
