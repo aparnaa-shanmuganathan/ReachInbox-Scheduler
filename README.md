@@ -240,7 +240,31 @@ email (§6).
 
 ---
 
-## 8. Assumptions, shortcuts & trade-offs
+## 8. Hosting (optional live deployment)
+
+Not required by the assignment (a local run + the demo video is sufficient), but a live
+version can be hosted entirely on free tiers:
+
+- **Frontend** → Vercel, deployed directly from this repo (root directory `frontend/`).
+- **Backend** → Render, via the `render.yaml` Blueprint at the repo root. Render's free tier
+  has no background-worker service type (that requires a paid plan), so the Blueprint runs
+  `backend/src/hostedServer.ts` — a thin entrypoint that starts both the Express API and the
+  BullMQ worker in one process, purely as a free-tier accommodation. Locally and in
+  `docker-compose.yml` they remain two separate processes (api + worker), as described in
+  §5.4 and the Makefile — that separation is what actually matters for horizontal scaling in
+  a real deployment; the combined process is a hosting-cost trade-off, not the intended
+  architecture.
+- **Postgres** → Render's free Postgres (created by the same Blueprint).
+- **Redis** → Upstash's free tier (BullMQ-compatible), since Render doesn't offer a free
+  managed Redis/Key-Value instance.
+
+Trade-offs of the free tier specifically: the Render web service sleeps after 15 minutes of
+inactivity (cold start on the next request), and the free Postgres instance expires 30 days
+after creation.
+
+---
+
+## 9. Assumptions, shortcuts & trade-offs
 
 - **Auth storage:** the JWT is stored in `localStorage` and sent as a bearer header rather
   than an httpOnly cookie, to keep the cross-origin dev setup (`:3000` ↔ `:4000`) simple.

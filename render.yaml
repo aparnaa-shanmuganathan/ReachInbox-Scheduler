@@ -1,0 +1,59 @@
+# Render Blueprint for the free-tier hosted deployment of the backend.
+#
+# The api service runs backend/src/hostedServer.ts, which starts BOTH the Express API and
+# the BullMQ worker in one process — Render's free tier doesn't offer a background-worker
+# service type (workers require a paid plan), so this trades the local/Docker setup's
+# separate api+worker processes for a single free one on hosting only. See
+# backend/src/hostedServer.ts and the README's Architecture section for the local setup,
+# which keeps them separate.
+#
+# Secrets (marked `sync: false` below) are NOT stored in this file — after the Blueprint is
+# applied, set their real values in the Render dashboard (Environment tab). Copy them from
+# your local backend/.env.
+services:
+  - name: reachinbox-scheduler-api
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: node dist/hostedServer.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render assigns the public URL based on this service's name above. If Render had to
+      # rename it (e.g. the name was taken), update these two to match the real URL.
+      - key: BACKEND_URL
+        value: https://reachinbox-scheduler-api.onrender.com
+      - key: GOOGLE_CALLBACK_URL
+        value: https://reachinbox-scheduler-api.onrender.com/api/auth/google/callback
+      # Set this to your real Vercel URL once known (Vercel dashboard -> Deployments).
+      - key: FRONTEND_URL
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reachinbox-scheduler-db
+          property: connectionString
+      # Upstash rediss:// connection string (create a free Redis DB at upstash.com first).
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Real Gmail SMTP delivery — see README "Real delivery via Gmail SMTP".
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: ETHEREAL_AUTO_CREATE
+        value: "false"
+
+databases:
+  - name: reachinbox-scheduler-db
+    plan: free
