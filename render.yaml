@@ -17,7 +17,10 @@ services:
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    dockerCommand: node dist/hostedServer.js
+    # Applies pending Prisma migrations before starting — the Dockerfile's own CMD
+    # (dist/server.js, no migration step) is only overridden by docker-compose.yml
+    # locally, so this override must replicate that "migrate deploy && start" step too.
+    dockerCommand: sh -c "npx prisma migrate deploy && node dist/hostedServer.js"
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
