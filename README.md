@@ -114,6 +114,22 @@ once Gmail is configured, rather than mixing real and fake sends. Deactivated se
 their `Sender.isActive = false` flag rather than being removed, so past `Email` rows' sender
 relation stays intact. Leave both env vars unset to keep using Ethereal.
 
+### 4.2 Real delivery via Resend (HTTP API — required on Render's free tier)
+
+Gmail SMTP works fine locally, but **Render's free tier blocks all outbound SMTP traffic**
+(ports 25, 465, 587 — see [Render's changelog](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports)),
+so raw SMTP simply cannot connect from a free Render service to *any* SMTP provider, Gmail
+included. [Resend](https://resend.com) sends over plain HTTPS instead, which isn't affected.
+
+Set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to switch to it — `senderProvisioning.ts`
+checks this first, ahead of Gmail and Ethereal (RESEND > Gmail > Ethereal), deactivating
+whatever else was active the same way §4.1 describes. `RESEND_FROM_EMAIL` can be
+`onboarding@resend.dev` for free, no-signup-required testing, but that address can only
+deliver to the email you signed up to Resend with; sending to arbitrary recipients requires
+verifying your own domain with Resend. The `Sender.provider` column (`SMTP` | `RESEND`)
+tells `emailService.ts` which code path to use — SMTP via Nodemailer, or a direct `fetch` to
+`api.resend.com`.
+
 ---
 
 ## 5. Architecture
@@ -257,10 +273,16 @@ version can be hosted entirely on free tiers:
 - **Postgres** → Render's free Postgres (created by the same Blueprint).
 - **Redis** → Upstash's free tier (BullMQ-compatible), since Render doesn't offer a free
   managed Redis/Key-Value instance.
+- **Email delivery** → Resend (§4.2), not Gmail SMTP — Render's free tier blocks all
+  outbound SMTP traffic regardless of provider, so `RESEND_API_KEY`/`RESEND_FROM_EMAIL` are
+  required env vars on Render specifically, even though Gmail SMTP is what's configured for
+  local/Docker use.
 
 Trade-offs of the free tier specifically: the Render web service sleeps after 15 minutes of
-inactivity (cold start on the next request), and the free Postgres instance expires 30 days
-after creation.
+inactivity (cold start on the next request — and since the BullMQ worker lives in that same
+process, a scheduled send whose time arrives while the service is asleep only fires once
+something wakes it back up, e.g. the next incoming request), and the free Postgres instance
+expires 30 days after creation.
 
 ---
 

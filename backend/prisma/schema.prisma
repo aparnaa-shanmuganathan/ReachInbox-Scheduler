@@ -33,20 +33,30 @@ model User {
   @@map("users")
 }
 
+enum SenderProvider {
+  SMTP
+  // HTTP-API based delivery (e.g. Resend) — used where raw SMTP ports are network-blocked
+  // (e.g. Render's free tier blocks outbound 25/465/587 entirely as of Sept 2025).
+  RESEND
+}
+
 model Sender {
-  id           String   @id @default(uuid())
+  id           String         @id @default(uuid())
   label        String
-  fromEmail    String   @unique
-  smtpHost     String
-  smtpPort     Int
-  smtpUser     String
-  smtpPass     String
-  smtpSecure   Boolean  @default(false)
+  fromEmail    String         @unique
+  provider     SenderProvider @default(SMTP)
+  smtpHost     String?
+  smtpPort     Int?
+  smtpUser     String?
+  smtpPass     String?
+  smtpSecure   Boolean        @default(false)
+  // Resend API key, set only when provider = RESEND.
+  apiKey       String?
   // Retired senders (e.g. old Ethereal test accounts once real SMTP is configured) are
   // deactivated rather than deleted, so past Email rows still resolve their `sender`
   // relation. The scheduler only round-robins across active senders.
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
 
   emails Email[]
 

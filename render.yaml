@@ -52,10 +52,22 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      # Real Gmail SMTP delivery — see README "Real delivery via Gmail SMTP".
+      # Real Gmail SMTP delivery — see README "Real delivery via Gmail SMTP". NOT used on
+      # Render: raw SMTP (any provider, any port) is network-blocked on Render's free tier
+      # since Sept 2025, so RESEND_API_KEY below takes priority instead. Left here only so
+      # this same render.yaml still works unmodified on a paid Render plan, which doesn't
+      # have the SMTP block.
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD
+        sync: false
+      # HTTP-API email delivery via Resend (resend.com) — works on Render's free tier
+      # because it's plain HTTPS, not SMTP. Takes priority over Gmail/Ethereal when set.
+      # RESEND_FROM_EMAIL: use "onboarding@resend.dev" for testing (only delivers to the
+      # address you signed up to Resend with) or an address on a domain you've verified.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
         sync: false
       - key: ETHEREAL_AUTO_CREATE
         value: "false"

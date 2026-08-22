@@ -27,6 +27,14 @@ const EnvSchema = z.object({
   GMAIL_USER: z.string().email().optional(),
   GMAIL_APP_PASSWORD: z.string().min(1).optional(),
 
+  // Optional: HTTP-API email delivery via Resend, for environments where raw SMTP ports
+  // are network-blocked (e.g. Render's free tier). Takes priority over Gmail/Ethereal when
+  // set. RESEND_FROM_EMAIL must be either onboarding@resend.dev (testing — only delivers to
+  // the address you signed up to Resend with) or an address on a domain you've verified
+  // with Resend.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_FROM_EMAIL: z.string().email().optional(),
+
   MIN_DELAY_BETWEEN_EMAILS_MS: z.coerce.number().min(0).default(2000),
   WORKER_CONCURRENCY: z.coerce.number().min(1).default(5),
   MAX_EMAILS_PER_HOUR_PER_SENDER: z.coerce.number().min(1).default(200),
@@ -34,6 +42,9 @@ const EnvSchema = z.object({
 }).refine((data) => Boolean(data.GMAIL_USER) === Boolean(data.GMAIL_APP_PASSWORD), {
   message: "GMAIL_USER and GMAIL_APP_PASSWORD must both be set, or both left unset",
   path: ["GMAIL_APP_PASSWORD"],
+}).refine((data) => Boolean(data.RESEND_API_KEY) === Boolean(data.RESEND_FROM_EMAIL), {
+  message: "RESEND_API_KEY and RESEND_FROM_EMAIL must both be set, or both left unset",
+  path: ["RESEND_FROM_EMAIL"],
 });
 
 const parsed = EnvSchema.safeParse(process.env);
